@@ -3,8 +3,13 @@ import './SpotifyLandingPage.css';
 import spotify from '../../../assets/spotify.svg';
 
 // TODO:
-// Refresh spotify tokens
+// Twitch auth
 // Twitch bot
+// Dashboard page
+
+// Minor TODO
+// Spotify status codes
+// Fix routing logic (spotify.)
 
 class SpotifyLandingPage extends React.Component<any, any> {
 

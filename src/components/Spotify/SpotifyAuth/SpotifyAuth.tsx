@@ -10,7 +10,7 @@ export default class SpotifyAuth extends React.Component<any, any> {
         super(props);
 
         this.state = { loadingComplete: false };
-        setTimeout(() => this.getToken(), 1000);
+        setTimeout(() => this.getToken(), 1500);
     }
 
     getToken = () => {
@@ -39,7 +39,7 @@ export default class SpotifyAuth extends React.Component<any, any> {
 
     render() {
         if (this.state.loadingComplete) {
-            return <Redirect to="/dashboard"/>
+            return <Redirect to="/"/>
         }
         return (
             <div className="Spotify">

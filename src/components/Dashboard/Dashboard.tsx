@@ -2,6 +2,7 @@ import * as React from 'react'
 import axios from 'axios';
 import './Dashboard.css';
 import qs from 'qs';
+import tmi from 'tmi.js';
 
 export default class Dashboard extends React.Component<any, any> {
     constructor(props: any) {
@@ -9,7 +10,7 @@ export default class Dashboard extends React.Component<any, any> {
 
         this.state = { nowPlaying: 'Nothing Playing' }
         this.updateSpotifyTokens();
-        this.getNowPlaying();
+        this.establishTwitch();
     }
 
     getNowPlaying = () => {
@@ -23,10 +24,16 @@ export default class Dashboard extends React.Component<any, any> {
                 'Authorization': `Bearer ${accessToken}`
             }
         };
-        axios(options).then((response) => {
-            this.setState({nowPlaying: response.data.item.name});
-            setTimeout(() => this.getNowPlaying(), 10000);
-        });
+        axios(options)
+            .then((response) => {
+                this.setState( {nowPlaying: response.data.item.name} );
+            })
+            .catch((error) => {
+                this.setState( {nowPlaying: 'Nothing Playing'} );
+            })
+            .then(() => {
+                setTimeout(() => this.getNowPlaying(), 10000);
+            });
     }
 
     updateSpotifyTokens = () => {
@@ -50,8 +57,38 @@ export default class Dashboard extends React.Component<any, any> {
             }
             localStorage.setItem('spotify.access_token', response.data.access_token);
             localStorage.setItem('spotify.expires_in', response.data.expires_in.toString());
+            this.getNowPlaying();
         })
         setTimeout(() => this.updateSpotifyTokens(), 1000 * parseInt(localStorage.getItem('spotify.expires_in') || '3600'));
+    }
+
+    establishTwitch = () => {
+        const opts = {
+            identity: {
+              username: 'now_playing_bot',
+              password: localStorage.getItem('twitch.oauth')
+            },
+            channels: [
+              localStorage.getItem('twitch.user')
+            ]
+          };
+          
+          const client = new tmi.client(opts);
+          
+          client.on('message', (target: any, context: any, msg: string, self: any) => {
+            if (self) { return; }
+      
+            const commandName = msg.trim();
+          
+            if (commandName === '!song' || commandName === '!nowplaying') {
+              client.say(target, `Now playing: ${this.state.nowPlaying}`);
+              console.log(`* Executed ${commandName} command`);
+            } else {
+              console.log(`* Unknown command ${commandName}`);
+            }
+          });
+          client.on('connected', (addr: any, port: any) => console.log(`* Connected to ${addr}:${port}`));
+          client.connect();
     }
 
     render() {
@@ -59,7 +96,13 @@ export default class Dashboard extends React.Component<any, any> {
             <div className="App">
                 <header className="App-header">
                     <div className="App-text">
-                    Now Playing: {this.state.nowPlaying}
+                        Now Playing: {this.state.nowPlaying}
+                    </div>
+                    <div className="App-text">
+                        Spotify: {localStorage.getItem('spotify.access_token')?'Active':'Inactive'}
+                    </div>
+                    <div className="App-text">
+                        Twitch: {localStorage.getItem('twitch.user')}
                     </div>
                 </header>
             </div>
