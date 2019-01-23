@@ -1,14 +1,32 @@
 import * as React from 'react'
+import ReactLoading from 'react-loading';
 import axios from 'axios';
 import './Dashboard.css';
 import qs from 'qs';
 import tmi from 'tmi.js';
+import Button from '@material-ui/core/Button';
+import { MuiThemeProvider, createMuiTheme } from '@material-ui/core/styles';
+import { Redirect } from 'react-router';
 
 export default class Dashboard extends React.Component<any, any> {
     constructor(props: any) {
         super(props);
 
-        this.state = { nowPlaying: 'Nothing Playing' }
+        const opts = {
+            identity: {
+              username: 'now_playing_bot',
+              password: localStorage.getItem('twitch.oauth')
+            },
+            channels: [
+              localStorage.getItem('twitch.user')
+            ]
+        };
+        this.state = {
+            nowPlaying: 'Nothing Playing',
+            twitchLoading: false,
+            client: new tmi.client(opts),
+            resetAuth: false
+        }
         this.updateSpotifyTokens();
         this.establishTwitch();
     }
@@ -25,15 +43,9 @@ export default class Dashboard extends React.Component<any, any> {
             }
         };
         axios(options)
-            .then((response) => {
-                this.setState( {nowPlaying: response.data.item.name} );
-            })
-            .catch((error) => {
-                this.setState( {nowPlaying: 'Nothing Playing'} );
-            })
-            .then(() => {
-                setTimeout(() => this.getNowPlaying(), 10000);
-            });
+            .then((response) => this.setState( { nowPlaying: `${response.data.item.name} by ${response.data.item.artists[0].name}`}))
+            .catch((error) => this.setState( {nowPlaying: 'Nothing Playing'} ))
+            .then(() => setTimeout(() => this.getNowPlaying(), 10000));
     }
 
     updateSpotifyTokens = () => {
@@ -63,35 +75,35 @@ export default class Dashboard extends React.Component<any, any> {
     }
 
     establishTwitch = () => {
-        const opts = {
-            identity: {
-              username: 'now_playing_bot',
-              password: localStorage.getItem('twitch.oauth')
-            },
-            channels: [
-              localStorage.getItem('twitch.user')
-            ]
-          };
-          
-          const client = new tmi.client(opts);
-          
-          client.on('message', (target: any, context: any, msg: string, self: any) => {
-            if (self) { return; }
-      
-            const commandName = msg.trim();
-          
-            if (commandName === '!song' || commandName === '!nowplaying') {
-              client.say(target, `Now playing: ${this.state.nowPlaying}`);
-              console.log(`* Executed ${commandName} command`);
-            } else {
-              console.log(`* Unknown command ${commandName}`);
-            }
-          });
-          client.on('connected', (addr: any, port: any) => console.log(`* Connected to ${addr}:${port}`));
-          client.connect();
+        this.state.client.on('message', (target: any, context: any, msg: string, self: any) => {
+        if (self) { return; }
+
+        const commandName = msg.trim();
+        
+        if (commandName === '!song' || commandName === '!nowplaying') {
+            this.state.client.say(target, `Now playing: ${this.state.nowPlaying}`);
+            console.log(`* Executed ${commandName} command`);
+        } else {
+            console.log(`* Unknown command ${commandName}`);
+        }
+        });
+        this.state.client.on('connected', (addr: any, port: any) => this.setState({ twitchLoading: false }));
+        this.state.client.connect();
     }
 
     render() {
+        if (this.state.resetAuth) {
+            return <Redirect to="/" />
+        }
+        const theme = createMuiTheme({
+            palette: {
+              primary: { main: '#6441A4' },
+              secondary: { main: '#6441A4' }
+            },
+            typography: {
+                useNextVariants: true,
+            }
+        });
         return (
             <div className="App">
                 <header className="App-header">
@@ -104,6 +116,18 @@ export default class Dashboard extends React.Component<any, any> {
                     <div className="App-text">
                         Twitch: {localStorage.getItem('twitch.user')}
                     </div>
+                    <br/>
+                    <MuiThemeProvider theme={theme}>
+                        <Button variant={'contained'} color={'primary'} onClick={() => {
+                            localStorage.clear();
+                            this.setState( {resetAuth: true } );
+                        }}>
+                            Reset account settings
+                        </Button>
+                    </MuiThemeProvider>
+                    {this.state.twitchLoading && (
+                        <ReactLoading type={'cylon'} color={'#6441A4'} height={'20%'} width={'20%'} />
+                    )}
                 </header>
             </div>
         )
